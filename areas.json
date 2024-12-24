@@ -1,0 +1,23 @@
+[
+    {
+        "name": "Pipe Deck",
+        "width": 2000,
+        "height": 800,
+        "x": 10,
+        "y": 80
+    },
+    {
+        "name": "Skidd deck",
+        "width": 800,
+        "height": 600,
+        "x": 10,
+        "y": 80
+    },
+    {
+        "name": "r",
+        "width": 800,
+        "height": 600,
+        "x": 10,
+        "y": 80
+    }
+]
