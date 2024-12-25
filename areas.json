@@ -1,22 +1,36 @@
 [
     {
-        "name": "Pipe Deck",
-        "width": 2000,
-        "height": 800,
+        "name": "Sack Store Landing",
+        "width": 750,
+        "height": 350,
         "x": 10,
         "y": 80
     },
     {
-        "name": "Skidd deck",
-        "width": 800,
-        "height": 600,
+        "name": "D11 Top",
+        "width": 1250,
+        "height": 350,
         "x": 10,
         "y": 80
     },
     {
-        "name": "Weather deck",
-        "width": 800,
+        "name": "Skidd Deck",
+        "width": 2500,
         "height": 1000,
+        "x": 10,
+        "y": 80
+    },
+    {
+        "name": "Pipe Deck",
+        "width": 2500,
+        "height": 900,
+        "x": 10,
+        "y": 80
+    },
+    {
+        "name": "Weather Deck",
+        "width": 1000,
+        "height": 1500,
         "x": 10,
         "y": 80
     }
