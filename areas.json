@@ -14,9 +14,9 @@
         "y": 80
     },
     {
-        "name": "r",
+        "name": "Weather deck",
         "width": 800,
-        "height": 600,
+        "height": 1000,
         "x": 10,
         "y": 80
     }
