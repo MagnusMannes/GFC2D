@@ -8,8 +8,11 @@
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            padding-top: 80px; /* Add padding to prevent overlap with fixed header */
+            padding: 0;
             background-color: white;
+            overflow: hidden; /* Prevent outer scrollbars */
+
+            
         }
 
         /* Fixed top bar */
@@ -37,13 +40,37 @@
             align-items: center;
         }
 
+        .flarestack-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-left: 10px;
+        }
+
+        .arrow-up {
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 15px solid black;
+            margin: 5px 0;
+        }
+
+        .flarestack-container p {
+            margin: 0;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+        }
+
         .canvas-container {
             position: relative;
             width: 100%;
-            height: calc(90vh - 80px); /* Adjust height to account for fixed header */
+            height: calc(100vh - 60px); /* Adjust height to account for fixed header */
             border: 1px solid black;
-            overflow: auto; /* Enable scrolling */
+            overflow: auto; /* Enable inner scrolling only */
             background-color: #f9f9f9;
+            margin-top: 60px; /* Add margin to prevent overlap */
         }
 
         .area {
@@ -60,12 +87,13 @@
         }
 
         .box {
-            position: absolute;
-            border: 2px solid black; /* Default outline */
-            background-color: blue; /* Default background color */
-            padding: 5px;
-            cursor: grab;
-        }
+    position: absolute;
+    outline: 0px solid black; /* Replace border with outline */
+    background-color: blue; /* Keep the background color */
+    cursor: grab;
+    padding: 0; /* Ensure padding is not affecting dimensions */
+}
+
 
         .box.locked {
             border-color: red; /* Red outline for locked boxes */
@@ -124,8 +152,14 @@
             <input type="checkbox" id="isCircle">
             <button type="submit">Add item</button>
         </form>
+        <div class="flarestack-container">
+            <div class="arrow-up"></div>
+            <p>Flarestack / East</p>
+        </div>
+        <button id="toggleMeasure">Measure</button>
         <button id="openSettings">Settings</button>
     </div>
+    
 
     <div id="canvasContainer" class="canvas-container"></div>
 
