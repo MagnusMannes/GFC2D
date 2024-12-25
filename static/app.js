@@ -1,3 +1,4 @@
+// Corrected drag and drop issue - Refined to ensure precise placement
 const socket = io();
 const canvasContainer = document.getElementById('canvasContainer');
 const settingsModal = document.getElementById('settingsModal');
@@ -21,6 +22,9 @@ let lockedBoxes = {}; // Track locked boxes
 const scrollThreshold = 50; // Distance from edges to trigger scrolling
 const scrollSpeed = 10; // Speed of scrolling
 let scrollInterval = null; // Interval to handle scrolling
+
+let dragOffsetX = 0;
+let dragOffsetY = 0;
 
 // Open settings modal
 openSettings.addEventListener('click', () => {
@@ -129,8 +133,8 @@ const renderAreas = () => {
             if (newWidth && newHeight) {
                 const updatedArea = {
                     name: area.name,
-                    width: parseInt(newWidth) * metersToPixels,
-                    height: parseInt(newHeight) * metersToPixels
+                    width: Math.round(parseFloat(newWidth) * metersToPixels),
+                    height: Math.round(parseFloat(newHeight) * metersToPixels)
                 };
                 socket.emit('update_area', updatedArea);
             }
@@ -160,8 +164,8 @@ socket.on('update_areas', (serverAreas) => {
 boxForm.addEventListener('submit', (event) => {
     event.preventDefault();
     const name = document.getElementById('name').value;
-    const width = parseFloat(document.getElementById('width').value) * metersToPixels;
-    const height = parseFloat(document.getElementById('height').value) * metersToPixels;
+    const width = Math.round(parseFloat(document.getElementById('width').value) * metersToPixels);
+    const height = Math.round(parseFloat(document.getElementById('height').value) * metersToPixels);
     const color = document.getElementById('color').value;
     const isCircle = document.getElementById('isCircle').checked;
 
@@ -173,6 +177,7 @@ boxForm.addEventListener('submit', (event) => {
         y: 10,
         color,
         isCircle,
+        locked: false, // Default to unlocked
         comment: "", // Optional comment
         rotation: 0 // Default rotation
     };
@@ -191,21 +196,19 @@ socket.on('update_boxes', (boxes) => {
         const div = document.createElement('div');
         div.classList.add('box');
         div.style.position = 'absolute';
-        div.style.width = `${box.width}px`;
-        div.style.height = `${box.height}px`;
+        div.style.width = `${Math.round(box.width)}px`;
+        div.style.height = `${Math.round(box.height)}px`;
         div.style.left = `${box.x}px`;
         div.style.top = `${box.y}px`;
         div.style.backgroundColor = box.color || 'blue';
         div.style.border = box.locked ? '2px solid red' : '2px solid black';
         div.style.borderRadius = box.isCircle ? '50%' : '0';
         div.textContent = box.name;
-        div.setAttribute('draggable', true); // Make the box draggable
-        // Set rotation
+        div.setAttribute('draggable', !box.locked);
+        div.style.cursor = box.locked ? 'not-allowed' : 'grab';
         div.style.transform = `rotate(${box.rotation || 0}deg)`;
 
-        canvasContainer.appendChild(div);
-
-        // Create a custom tooltip for comments
+        // Tooltip for box details
         const tooltip = document.createElement('div');
         tooltip.classList.add('tooltip');
         tooltip.style.position = 'absolute';
@@ -216,41 +219,54 @@ socket.on('update_boxes', (boxes) => {
         tooltip.style.visibility = 'hidden';
         tooltip.style.opacity = '0';
         tooltip.style.transition = 'visibility 0s, opacity 0.2s';
-        tooltip.style.zIndex = '10000'; // Ensure tooltip is on top
-        tooltip.textContent = box.comment;
+        tooltip.style.zIndex = '10000';
 
-        if (box.comment && box.comment.trim() !== '') {
-            div.addEventListener('mouseenter', (event) => {
-                if (activeTooltip) {
-                    activeTooltip.style.visibility = 'hidden';
-                    activeTooltip.style.opacity = '0';
-                    if (document.body.contains(activeTooltip)) {
-                        document.body.removeChild(activeTooltip);
-                    }
+        // Calculate dimensions and area
+        const widthMeters = box.width / metersToPixels;
+        const heightMeters = box.height / metersToPixels;
+        const area = widthMeters * heightMeters;
+
+        // Populate tooltip content
+        tooltip.textContent = `
+            Comment: ${box.comment || 'None'}
+            Width: ${widthMeters.toFixed(2)}m
+            Height: ${heightMeters.toFixed(2)}m
+            Area: ${area.toFixed(2)}m²
+        `;
+
+        div.addEventListener('mouseenter', (event) => {
+            if (activeTooltip) {
+                activeTooltip.style.visibility = 'hidden';
+                activeTooltip.style.opacity = '0';
+                if (document.body.contains(activeTooltip)) {
+                    document.body.removeChild(activeTooltip);
                 }
-                activeTooltip = tooltip; // Set the current tooltip as active
+            }
+            activeTooltip = tooltip;
+            tooltip.style.visibility = 'visible';
+            tooltip.style.opacity = '1';
+            tooltip.style.left = `${event.pageX + 10}px`;
+            tooltip.style.top = `${event.pageY + 10}px`;
+            document.body.appendChild(tooltip);
+        });
 
-                tooltip.style.visibility = 'visible';
-                tooltip.style.opacity = '1';
-                tooltip.style.left = `${event.pageX + 10}px`; // Position tooltip near mouse
-                tooltip.style.top = `${event.pageY + 10}px`;
-                document.body.appendChild(tooltip); // Append tooltip to body to ensure it stays on top
-            });
+        div.addEventListener('mousemove', (event) => {
+            tooltip.style.left = `${event.pageX + 10}px`;
+            tooltip.style.top = `${event.pageY + 10}px`;
+        });
 
-            
-            div.addEventListener('mouseleave', () => {
-                if (tooltip === activeTooltip) {
-                    tooltip.style.visibility = 'hidden';
-                    tooltip.style.opacity = '0';
-                    if (document.body.contains(tooltip)) {
-                        document.body.removeChild(tooltip);
-                    }
-                    activeTooltip = null; // Clear the active tooltip
+        div.addEventListener('mouseleave', () => {
+            if (tooltip === activeTooltip) {
+                tooltip.style.visibility = 'hidden';
+                tooltip.style.opacity = '0';
+                if (document.body.contains(tooltip)) {
+                    document.body.removeChild(tooltip);
                 }
-            });
-        }
+                activeTooltip = null;
+            }
+        });
 
-        // Drag events
+        // Drag events remain unchanged
         div.addEventListener('dragstart', (event) => {
             if (lockedBoxes[box.name]) return;
 
@@ -259,7 +275,7 @@ socket.on('update_boxes', (boxes) => {
             dragOffsetY = event.clientY - rect.top;
 
             event.dataTransfer.setData('text/plain', JSON.stringify(box));
-            event.dataTransfer.effectAllowed = 'move'; // Ensure move effect is allowed
+            event.dataTransfer.effectAllowed = 'move';
         });
 
         div.addEventListener('dragend', (event) => {
@@ -269,18 +285,22 @@ socket.on('update_boxes', (boxes) => {
             const dropX = event.clientX - canvasRect.left - dragOffsetX + canvasContainer.scrollLeft;
             const dropY = event.clientY - canvasRect.top - dragOffsetY + canvasContainer.scrollTop;
 
+            // Adjust to account for canvas boundaries
+            const adjustedX = Math.max(0, Math.min(canvasContainer.scrollWidth - box.width, dropX));
+            const adjustedY = Math.max(0, Math.min(canvasContainer.scrollHeight - box.height, dropY));
+
             socket.emit('update_box_position', {
                 name: box.name,
-                x: dropX,
-                y: dropY,
+                x: adjustedX,
+                y: adjustedY,
             });
 
-            clearScrollOnDragEnd(); // Clear scrolling
+            clearScrollOnDragEnd();
         });
 
+        canvasContainer.appendChild(div);
 
-
-        // Right-click menu
+        // Context menu
         div.addEventListener('contextmenu', (event) => {
             event.preventDefault();
 
@@ -296,8 +316,10 @@ socket.on('update_boxes', (boxes) => {
             const lockOption = document.createElement('div');
             lockOption.textContent = lockedBoxes[box.name] ? 'Unlock' : 'Lock';
             lockOption.addEventListener('click', () => {
-                lockedBoxes[box.name] = !lockedBoxes[box.name];
-                div.style.border = lockedBoxes[box.name] ? '2px solid red' : '2px solid black'; // Update outline color
+                const isLocked = !lockedBoxes[box.name];
+                lockedBoxes[box.name] = isLocked;
+                div.style.border = isLocked ? '2px solid red' : '2px solid black';
+                socket.emit('update_box_lock', { name: box.name, locked: isLocked });
                 document.body.removeChild(menu);
             });
             menu.appendChild(lockOption);
@@ -313,7 +335,7 @@ socket.on('update_boxes', (boxes) => {
             const rotateOption = document.createElement('div');
             rotateOption.textContent = 'Rotate';
             rotateOption.addEventListener('click', () => {
-                const degrees = parseInt(prompt('Enter rotation in degrees:', box.rotation));
+                const degrees = parseInt(prompt('Enter rotation in degrees:', box.rotation || 0));
                 if (!isNaN(degrees)) {
                     socket.emit('update_box_rotation', { name: box.name, rotation: degrees });
                 }
@@ -340,7 +362,113 @@ socket.on('update_boxes', (boxes) => {
             document.addEventListener('click', closeMenu);
         });
 
-
         canvasContainer.appendChild(div);
     });
 });
+
+// Ensure rendering reflects the locked state
+socket.on('box_lock_updated', (data) => {
+    lockedBoxes[data.name] = data.locked;
+});
+
+socket.on('update_box_rotation', (data) => {
+    const boxDiv = canvasContainer.querySelector(`.box:contains(${data.name})`);
+    if (boxDiv) {
+        boxDiv.style.transform = `rotate(${box.rotation || 0}deg)`;
+    }
+});
+
+
+// Maintain an array of dots
+let dots = [];
+
+// Enable measurement mode
+let measuring = false;
+document.getElementById('toggleMeasure').addEventListener('click', () => {
+    measuring = !measuring;
+    if (measuring) {
+        alert('Measurement mode enabled. Click to place dots. Click button again to disable');
+    } else {
+        alert('Measurement mode disabled.');
+        dots = []; // Clear dots when exiting measurement mode
+        renderDots();
+    }
+});
+
+// Add a dot and calculate distance
+canvasContainer.addEventListener('click', (event) => {
+    if (!measuring) return;
+
+    const rect = canvasContainer.getBoundingClientRect();
+    const x = event.clientX - rect.left + canvasContainer.scrollLeft;
+    const y = event.clientY - rect.top + canvasContainer.scrollTop;
+
+    // Add the new dot
+    dots.push({ x, y });
+
+    renderDots();
+});
+
+// Render dots and lines on the canvas
+function renderDots() {
+    // Remove existing dots and lines
+    canvasContainer.querySelectorAll('.dot').forEach(dot => dot.remove());
+    canvasContainer.querySelectorAll('.line').forEach(line => line.remove());
+    canvasContainer.querySelectorAll('.distance-label').forEach(label => label.remove());
+
+    // Add each dot
+    dots.forEach((dot, index) => {
+        const dotDiv = document.createElement('div');
+        dotDiv.classList.add('dot');
+        dotDiv.style.position = 'absolute';
+        dotDiv.style.width = '8px';
+        dotDiv.style.height = '8px';
+        dotDiv.style.borderRadius = '50%';
+        dotDiv.style.backgroundColor = 'black'; // Change dot color to black
+        dotDiv.style.left = `${dot.x - 4}px`; // Center dot
+        dotDiv.style.top = `${dot.y - 4}px`;
+        dotDiv.title = `Dot ${index + 1}`;
+
+        canvasContainer.appendChild(dotDiv);
+
+        // Draw line and label distance if not the first dot
+        if (index > 0) {
+            const prevDot = dots[index - 1];
+
+            // Draw the line
+            const line = document.createElement('div');
+            line.classList.add('line');
+            line.style.position = 'absolute';
+            line.style.backgroundColor = 'black';
+            line.style.height = '2px';
+            line.style.width = `${Math.sqrt(Math.pow(dot.x - prevDot.x, 2) + Math.pow(dot.y - prevDot.y, 2))}px`;
+            line.style.left = `${prevDot.x}px`;
+            line.style.top = `${prevDot.y}px`;
+            line.style.transformOrigin = '0 0';
+            line.style.transform = `rotate(${Math.atan2(dot.y - prevDot.y, dot.x - prevDot.x) * (180 / Math.PI)}deg)`;
+
+            canvasContainer.appendChild(line);
+
+            // Calculate distance
+            const distance = Math.sqrt(
+                Math.pow(dot.x - prevDot.x, 2) + Math.pow(dot.y - prevDot.y, 2)
+            ) / metersToPixels; // Convert pixels to meters
+
+            // Display distance
+            const distanceLabel = document.createElement('div');
+            distanceLabel.classList.add('distance-label');
+            distanceLabel.textContent = `${distance.toFixed(2)}m`;
+            distanceLabel.style.position = 'absolute';
+            distanceLabel.style.left = `${(dot.x + prevDot.x) / 2}px`;
+            distanceLabel.style.top = `${(dot.y + prevDot.y) / 2}px`;
+            distanceLabel.style.backgroundColor = 'white';
+            distanceLabel.style.padding = '2px 5px';
+            distanceLabel.style.border = '1px solid black';
+            distanceLabel.style.borderRadius = '3px';
+
+            canvasContainer.appendChild(distanceLabel);
+        }
+    });
+}
+
+
