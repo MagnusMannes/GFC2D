@@ -120,4 +120,5 @@ def handle_update_box_lock(data):
     emit('update_boxes', boxes, broadcast=True)  # Notify all clients
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    port = int(os.getenv('PORT', 5000))
+    socketio.run(app, host='0.0.0.0', port=port, debug=True)
