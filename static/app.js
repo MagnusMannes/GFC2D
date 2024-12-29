@@ -9,7 +9,7 @@ const areaList = document.getElementById('areaList');
 const boxForm = document.getElementById('boxForm');
 
 // Scaling factor
-let metersToPixels = 50;
+let metersToPixels = 25;
 
 // Global area positioning
 let nextAreaY = 80; // Initial vertical position (below the menu)
@@ -160,13 +160,24 @@ socket.on('update_areas', (serverAreas) => {
     renderAreas(); // Re-render areas on the canvas
 });
 
+
+
+let currentColor = '#add8e6'; // Default color
+
+// Get the color input element
+const colorInput = document.getElementById('color');
+
+// Update the currentColor whenever the user selects a new color
+colorInput.addEventListener('input', (event) => {
+    currentColor = event.target.value;
+});
+
 // Add a box
 boxForm.addEventListener('submit', (event) => {
     event.preventDefault();
     const name = document.getElementById('name').value;
     const width = Math.round(parseFloat(document.getElementById('width').value) * metersToPixels);
     const height = Math.round(parseFloat(document.getElementById('height').value) * metersToPixels);
-    const color = document.getElementById('color').value;
     const isCircle = document.getElementById('isCircle').checked;
 
     const box = {
@@ -175,16 +186,21 @@ boxForm.addEventListener('submit', (event) => {
         height,
         x: 10,
         y: 10,
-        color,
+        color: currentColor, // Use the remembered color
         isCircle,
         locked: false, // Default to unlocked
-        comment: "", // Optional comment
+        comment: " ", // Optional comment
         rotation: 0 // Default rotation
     };
 
     socket.emit('create_box', box);
+
+    // Reset the form, but restore the selected color
     boxForm.reset();
+    colorInput.value = currentColor; // Restore the remembered color to the input field
 });
+
+
 
 // Render boxes dynamically
 let activeTooltip = null; // Track the currently active tooltip
@@ -303,7 +319,7 @@ socket.on('update_boxes', (boxes) => {
         // Context menu
         div.addEventListener('contextmenu', (event) => {
             event.preventDefault();
-
+        
             const menu = document.createElement('div');
             menu.style.position = 'absolute';
             menu.style.left = `${event.pageX}px`;
@@ -312,28 +328,30 @@ socket.on('update_boxes', (boxes) => {
             menu.style.border = '1px solid black';
             menu.style.padding = '5px';
             menu.style.zIndex = '1000';
-
+        
             const lockOption = document.createElement('div');
-            lockOption.textContent = lockedBoxes[box.name] ? 'Unlock' : 'Lock';
+            lockOption.textContent = box.locked ? 'Unlock' : 'Lock';
+            lockOption.style.padding = '5px';
             lockOption.addEventListener('click', () => {
-                const isLocked = !lockedBoxes[box.name];
-                lockedBoxes[box.name] = isLocked;
-                div.style.border = isLocked ? '2px solid red' : '2px solid black';
-                socket.emit('update_box_lock', { name: box.name, locked: isLocked });
+                box.locked = !box.locked;
+                div.style.border = box.locked ? '2px solid red' : '2px solid black';
+                socket.emit('update_box_lock', { name: box.name, locked: box.locked });
                 document.body.removeChild(menu);
             });
             menu.appendChild(lockOption);
-
+        
             const deleteOption = document.createElement('div');
             deleteOption.textContent = 'Delete';
+            deleteOption.style.padding = '5px';
             deleteOption.addEventListener('click', () => {
                 socket.emit('delete_box', { name: box.name });
                 document.body.removeChild(menu);
             });
             menu.appendChild(deleteOption);
-
+        
             const rotateOption = document.createElement('div');
             rotateOption.textContent = 'Rotate';
+            rotateOption.style.padding = '5px';
             rotateOption.addEventListener('click', () => {
                 const degrees = parseInt(prompt('Enter rotation in degrees:', box.rotation || 0));
                 if (!isNaN(degrees)) {
@@ -342,27 +360,55 @@ socket.on('update_boxes', (boxes) => {
                 document.body.removeChild(menu);
             });
             menu.appendChild(rotateOption);
-
+        
             const commentOption = document.createElement('div');
             commentOption.textContent = 'Add Comment';
+            commentOption.style.padding = '5px';
             commentOption.addEventListener('click', () => {
                 const comment = prompt('Enter a comment:', box.comment || '');
                 socket.emit('update_box_comment', { name: box.name, comment });
                 document.body.removeChild(menu);
             });
             menu.appendChild(commentOption);
-
-            document.body.appendChild(menu);
-
-            const closeMenu = () => {
+        
+            const duplicateOption = document.createElement('div');
+            duplicateOption.textContent = 'Duplicate';
+            duplicateOption.style.padding = '5px';
+            duplicateOption.addEventListener('click', () => {
+                const newName = prompt('Enter name for the duplicate:', `${box.name}_copy`);
+                if (newName) {
+                    const duplicateBox = { ...box, name: newName, x: box.x + 10, y: box.y + 10 };
+                    socket.emit('create_box', duplicateBox);
+                }
                 document.body.removeChild(menu);
-                document.removeEventListener('click', closeMenu);
+            });
+            menu.appendChild(duplicateOption);
+        
+            // Legge til hover-effekt for menyvalg
+            menu.querySelectorAll('div').forEach((menuItem) => {
+                menuItem.style.cursor = 'pointer';
+                menuItem.addEventListener('mouseenter', () => {
+                    menuItem.style.backgroundColor = '#f0f0f0';
+                });
+                menuItem.addEventListener('mouseleave', () => {
+                    menuItem.style.backgroundColor = 'white';
+                });
+            });
+        
+            document.body.appendChild(menu);
+        
+            const closeMenu = () => {
+                if (document.body.contains(menu)) {
+                    document.body.removeChild(menu);
+                    document.removeEventListener('click', closeMenu);
+                }
             };
-
             document.addEventListener('click', closeMenu);
         });
-
+        
         canvasContainer.appendChild(div);
+        
+        
     });
 });
 
@@ -470,5 +516,18 @@ function renderDots() {
         }
     });
 }
+
+
+document.getElementById('backupFiles').addEventListener('click', () => {
+    const files = ['areas.json', 'boxes.json'];
+    files.forEach(file => {
+        const link = document.createElement('a');
+        link.href = `/download/${file}`;
+        link.download = file;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+});
 
 
