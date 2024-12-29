@@ -2,7 +2,7 @@ from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
 import json
 import os
-
+from flask import send_file
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key'
 socketio = SocketIO(app)
@@ -118,6 +118,15 @@ def handle_update_box_lock(data):
             save_data(BOXES_FILE, boxes)  # Save updated boxes
             break
     emit('update_boxes', boxes, broadcast=True)  # Notify all clients
+
+
+
+@app.route('/download/<filename>')
+def download_file(filename):
+    if filename in ['areas.json', 'boxes.json']:
+        return send_file(filename, as_attachment=True)
+    return "File not found", 404
+
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
